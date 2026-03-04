@@ -1,0 +1,67 @@
+name: Deploy parser to server
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+env:
+  SSH_HOST: 158.160.168.209
+  SSH_USER: ubuntu
+  APP_DIR: /opt/ecotech-parser
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate deploy secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+            echo "SSH_PRIVATE_KEY is empty. Configure repository secret before deploy."
+            exit 1
+          fi
+
+      - name: Setup SSH key and config
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          # Remove CR symbols in case secret was pasted from Windows.
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+          cat > ~/.ssh/config <<CFG
+          Host ecotech-server
+            HostName $SSH_HOST
+            User $SSH_USER
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            ServerAliveInterval 30
+            ServerAliveCountMax 4
+          CFG
+          chmod 600 ~/.ssh/config
+
+      - name: Check SSH connectivity
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o ConnectTimeout=15 ecotech-server 'echo "SSH OK"'
+
+      - name: Deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh ecotech-server "mkdir -p $APP_DIR"
+          rsync -avz --delete --exclude '.git' -e 'ssh' ./ "ecotech-server:$APP_DIR/"
+          ssh ecotech-server "cd $APP_DIR && python3 -m venv .venv && . .venv/bin/activate && pip install --upgrade pip && if [ -s requirements.txt ]; then pip install -r requirements.txt; fi && sudo cp deploy/ecotech-parser.service /etc/systemd/system/ecotech-parser.service && sudo cp deploy/ecotech-parser.timer /etc/systemd/system/ecotech-parser.timer && sudo systemctl daemon-reload && sudo systemctl enable --now ecotech-parser.timer && sudo systemctl restart ecotech-parser.service"

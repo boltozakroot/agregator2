@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Ecotech parser every 6 hours
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=6h
+Unit=ecotech-parser.service
+
+[Install]
+WantedBy=timers.target
