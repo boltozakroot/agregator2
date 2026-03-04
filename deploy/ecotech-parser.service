@@ -1,0 +1,9 @@
+[Unit]
+Description=Ecotechstroy parser service (oneshot)
+After=network.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/ecotech-parser
+ExecStart=/opt/ecotech-parser/.venv/bin/python run_parser.py --json /opt/ecotech-parser/output/houses.json --csv /opt/ecotech-parser/output/houses.csv

@@ -1,0 +1,26 @@
+name: Deploy parser to server
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H 158.160.168.209 >> ~/.ssh/known_hosts
+
+      - name: Deploy
+        run: |
+          ssh ubuntu@158.160.168.209 'mkdir -p /opt/ecotech-parser'
+          rsync -avz --delete --exclude '.git' ./ ubuntu@158.160.168.209:/opt/ecotech-parser/
+          ssh ubuntu@158.160.168.209 'cd /opt/ecotech-parser && python3 -m venv .venv && . .venv/bin/activate && pip install --upgrade pip && if [ -s requirements.txt ]; then pip install -r requirements.txt; fi && sudo cp deploy/ecotech-parser.service /etc/systemd/system/ecotech-parser.service && sudo cp deploy/ecotech-parser.timer /etc/systemd/system/ecotech-parser.timer && sudo systemctl daemon-reload && sudo systemctl enable --now ecotech-parser.timer && sudo systemctl restart ecotech-parser.service'
