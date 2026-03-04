@@ -143,35 +143,8 @@ ls -lah /opt/ecotech-parser/output/
 ## Если что-то не работает
 
 ### Ошибка `Permission denied (publickey)`
-Сделайте по порядку:
-
-1. Проверьте, что **публичная часть** вашего deploy-ключа реально лежит на сервере:
-   ```bash
-   ssh ubuntu@158.160.168.209 "cat ~/.ssh/authorized_keys"
-   ```
-2. Если ключа нет — добавьте:
-   ```bash
-   ssh-copy-id -i ~/.ssh/ecotech_deploy_key.pub ubuntu@158.160.168.209
-   ```
-3. Проверьте вход этим же ключом локально:
-   ```bash
-   ssh -i ~/.ssh/ecotech_deploy_key ubuntu@158.160.168.209
-   ```
-4. В GitHub Secret `SSH_PRIVATE_KEY` вставьте **точно содержимое** `~/.ssh/ecotech_deploy_key` (приватный ключ, вместе с BEGIN/END строками).
-5. Если раньше использовали другой ключ — удалите старый из `authorized_keys` и добавьте новый.
-
-### Ошибка `Process completed with exit code 255`
-Это почти всегда проблема SSH-подключения (аутентификация/ключ/host check), а не Python-код.
-
-Проверьте по шагам:
-
-1. В GitHub Secret `SSH_PRIVATE_KEY` вставлен **приватный** ключ целиком (включая `BEGIN ... PRIVATE KEY` и `END ... PRIVATE KEY`).
-2. Публичный ключ от этой же пары добавлен на сервер в `~/.ssh/authorized_keys` пользователя `ubuntu`.
-3. Локально этот ключ действительно заходит:
-   ```bash
-   ssh -i ~/.ssh/ecotech_deploy_key ubuntu@158.160.168.209
-   ```
-4. В workflow должен пройти шаг `Check SSH connectivity` (если он красный — проблема точно в SSH).
+- Ключ не добавлен в `authorized_keys` на сервере
+- Или в GitHub Secret вставлен не тот ключ
 
 ### Ошибка sudo/systemctl в workflow
 - У пользователя `ubuntu` должны быть права на `sudo cp`, `sudo systemctl`
