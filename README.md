@@ -37,7 +37,3 @@ python -m unittest discover -s tests -v
 ```bash
 ./deploy/setup_server.sh <repo_url>
 ```
-
-## Быстрая инструкция для новичков
-
-- См. `docs/DEPLOY_FOR_BEGINNERS.md`
