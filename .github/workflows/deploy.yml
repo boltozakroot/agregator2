@@ -1,0 +1,41 @@
+name: Deploy parser to server
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+env:
+  SSH_HOST: 158.160.168.209
+  SSH_USER: ubuntu
+  APP_DIR: /opt/ecotech-parser
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Check SSH connectivity
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" 'echo "SSH OK"'
+
+      - name: Deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/id_ed25519 "$SSH_USER@$SSH_HOST" "mkdir -p $APP_DIR"
+          rsync -avz --delete --exclude '.git' -e 'ssh -i ~/.ssh/id_ed25519' ./ "$SSH_USER@$SSH_HOST:$APP_DIR/"
+          ssh -i ~/.ssh/id_ed25519 "$SSH_USER@$SSH_HOST" "cd $APP_DIR && python3 -m venv .venv && . .venv/bin/activate && pip install --upgrade pip && if [ -s requirements.txt ]; then pip install -r requirements.txt; fi && sudo cp deploy/ecotech-parser.service /etc/systemd/system/ecotech-parser.service && sudo cp deploy/ecotech-parser.timer /etc/systemd/system/ecotech-parser.timer && sudo systemctl daemon-reload && sudo systemctl enable --now ecotech-parser.timer && sudo systemctl restart ecotech-parser.service"
